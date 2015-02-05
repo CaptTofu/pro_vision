@@ -1,3 +1,4 @@
-Comware 5.2 Library for Ansible Comware 5.2 modules
+Pro Vision Library for Ansible pro_vision modules
 
-This library is needed for the comware_5_2_x modules used to manage Comware 5.x-based switches (HP 1910 24GB, etc)
+This library is needed for the pro_vision modules used to manage Pro Vision-based switches (HP 3800, etc)
+# pro_vision
