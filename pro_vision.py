@@ -194,6 +194,63 @@ class ProVision(object):
     def _exit(self):
         self._exec_command(cmd_exit, "ERROR: unable to exit")
 
+    def _is_conseq(self, llist):
+        listlen = len(llist)
+        i = 1 
+        count = 0
+        while i < listlen :
+            count += (int(llist[i]) - int(llist[i-1]))
+            i += 1
+
+        return count == listlen-1
+
+    def _single_conseq_to_range(self, num_string):
+        llist = map(int, num_string.split(','))
+        llist.sort()
+        if self._is_conseq(llist):
+            return "%d-%d" % (min(llist), max(llist))
+        else:
+            return rawlist
+
+    def _cleanup_port_listing(self, port_string):
+        log.write("_cleanup_port_listing()")
+        range_string = port_string 
+        m = re.search('^([\d\,]+)$', port_string)
+        if m:
+            if m.group(1):
+                log.write("m.group(1) %s\n" % m.group(1))
+                log.flush()
+                range_string = self._single_conseq_to_range(m.group(1))
+                return range_string
+
+        # if pattern is something like 1,2,3,4,10-15
+        m = re.search('([\d\,]+),(\d+\-\d+)', port_string)
+        if m:
+            log.write("first match\n")
+            log.write("group(1) %s group(2) %s\n" % (m.group(1), m.group(2)))
+            if m.group(1) and m.group(2):
+                log.write("m.group(1) %s\n" % m.group(1))
+                log.flush()
+                range_string = self._single_conseq_to_range(m.group(1))
+                range_string = "%s,%s" % (m.group(1), m.group(2))
+                log.write("range_string %s\n" % range_string)
+                log.flush()
+            return range_string
+
+        # if pattern is something like 1-4,10,11,12,13,14,15
+        m = re.search('(\d+\-\d+)\,([\d,]+)', port_string)
+        if m:
+            log.write("second match\n")
+            if m.group(2):
+                log.write("m.group(2) %s\n" % m.group(2))
+                range_string = self._single_conseq_to_range(m.group(2))
+                log.write("range_string %s\n" % range_string)
+                log.flush()
+            range_string = "%s,%s" % (m.group(2), m.group(1))
+
+        return range_string
+
+
     # this method enters the global config level
     def _enter_config_level(self):
         prompt = self._get_prompt()
