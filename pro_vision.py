@@ -183,10 +183,9 @@ class ProVision(object):
                 self.fail(message)
         return output_list
 
-
     def save(self):
-        self._exec_command(cmd_write, "ERROR: unable to write config")
-
+        output = self._exec_command(cmd_write, "ERROR: unable to write config")
+        log.write("saving - output: %s\n" % output)
 
     def _quit(self):
         self._exec_command(cmd_quit, "ERROR: unable to quit level")
@@ -202,51 +201,63 @@ class ProVision(object):
             count += (int(llist[i]) - int(llist[i-1]))
             i += 1
 
+        log.write("count %d listlen-1 %d\n" % (count, listlen-1))
+        log.write("compare %s\n" % (count == listlen-1))
+        log.flush()
         return count == listlen-1
 
     def _single_conseq_to_range(self, num_string):
+        # this is because a regex from caller will allow a-b,c-d,x-y...
+        # no need to determine if it's a range if it isn't a comma-sep list
+        if not re.match('^[\d\,]+$', num_string):
+            return num_string
         llist = map(int, num_string.split(','))
         llist.sort()
+        log.write("%s\n" % pp.pformat(llist))
+        log.flush()
         if self._is_conseq(llist):
             return "%d-%d" % (min(llist), max(llist))
-        else:
-            return rawlist
+
+        return num_string 
 
     def _cleanup_port_listing(self, port_string):
         log.write("_cleanup_port_listing()")
         range_string = port_string 
-        m = re.search('^([\d\,]+)$', port_string)
+        m = re.search('^([\d\,]{2,})$', port_string)
         if m:
             if m.group(1):
+                log.write("first match\n")
                 log.write("m.group(1) %s\n" % m.group(1))
-                log.flush()
                 range_string = self._single_conseq_to_range(m.group(1))
+                log.write("case 1 - range_string %s\n" % range_string)
+                log.flush()
                 return range_string
 
         # if pattern is something like 1,2,3,4,10-15
-        m = re.search('([\d\,]+),(\d+\-\d+)', port_string)
+        m = re.search('([\d\,]{2,}),(\d+\-\d+)', port_string)
         if m:
-            log.write("first match\n")
+            log.write("second match\n")
             log.write("group(1) %s group(2) %s\n" % (m.group(1), m.group(2)))
             if m.group(1) and m.group(2):
                 log.write("m.group(1) %s\n" % m.group(1))
                 log.flush()
                 range_string = self._single_conseq_to_range(m.group(1))
-                range_string = "%s,%s" % (m.group(1), m.group(2))
-                log.write("range_string %s\n" % range_string)
+                range_string += ",%s" % m.group(2)
+                log.write("case 2 - range_string %s\n" % range_string)
                 log.flush()
             return range_string
 
         # if pattern is something like 1-4,10,11,12,13,14,15
-        m = re.search('(\d+\-\d+)\,([\d,]+)', port_string)
+        # or even will allow a-b,c-d,x-y
+        m = re.search('(\d+\-\d+)\,([\d,^-]{2,})', port_string)
         if m:
-            log.write("second match\n")
+            log.write("third match\n")
             if m.group(2):
                 log.write("m.group(2) %s\n" % m.group(2))
                 range_string = self._single_conseq_to_range(m.group(2))
-                log.write("range_string %s\n" % range_string)
-                log.flush()
-            range_string = "%s,%s" % (m.group(2), m.group(1))
+            range_string = m.group(1) + "," + range_string 
+            log.write("range_string %s\n" % range_string)
+            log.flush()
 
         return range_string
 
@@ -481,20 +492,6 @@ class ProVision(object):
             line_count += 1
 
         return config_dict
-
-    def _run_saved_config(self):
-        self._send_command(cmd_saved_config,
-                           "ERROR: unable to get switch current config")
-
-    # get a clean dictionary representation of current config output for facts
-    # TODO: work into a dict with specific parsing phrases. No easy way
-    # to do this!
-    def _get_saved_config(self):
-        self._run_saved_config()
-        return self._get_config_dict(self._get_config_list())
-
-    def _get_config_list(self):
-        return self._get_output_list('version')
 
     # OK, this method was very tricky. Probably endless way to do this better
     # but this works best for the varying output the switch gives you
